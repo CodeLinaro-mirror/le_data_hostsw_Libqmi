@@ -168,7 +168,7 @@ endif
 # rmnet link management support
 enable_rmnet = false
 if get_option('rmnet')
-  enable_rmnet = true
+  enable_rmnet = cc.has_type('struct ifla_rmnet_flags', prefix: '#include<linux/if_link.h>')
 endif
 config_h.set('RMNET_SUPPORT_ENABLED', enable_rmnet)
 
