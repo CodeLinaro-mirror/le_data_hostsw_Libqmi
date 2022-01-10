@@ -3,16 +3,17 @@
 
 project(
   'libqmi', 'c',
-  version: '1.31.0',
+  version: '1.31.2',
   license: 'GPL2',
   default_options: [
     'buildtype=debugoptimized',
     'c_std=gnu89',
     'warning_level=2',
   ],
-  meson_version: '>= 0.45.1',
+  meson_version: '>= 0.53.0',
 )
 
+qmi_name = meson.project_name()
 qmi_version = meson.project_version()
 version_array = qmi_version.split('.')
 qmi_major_version = version_array[0].to_int()
@@ -26,8 +27,8 @@ qmi_includedir = get_option('includedir')
 qmi_libexecdir = get_option('libexecdir')
 qmi_mandir = get_option('mandir')
 
-qmi_glib_include_subdir = meson.project_name() + '-glib'
-qmi_glib_pkgincludedir = join_paths(qmi_includedir, qmi_glib_include_subdir)
+qmi_glib_include_subdir = qmi_name + '-glib'
+qmi_glib_pkgincludedir = qmi_includedir / qmi_glib_include_subdir
 
 # libtool versioning for libqmi-glib (-version-info c:r:a)
 # - If the interface is unchanged, but the implementation has changed or been fixed, then increment r
@@ -44,15 +45,15 @@ qmi_gir_version = '1.0'
 gnome = import('gnome')
 i18n = import('i18n')
 pkg = import('pkgconfig')
-python = import('python3').find_python()
+python = import('python').find_installation('python3')
 
 source_root = meson.current_source_dir()
 
-data_dir = join_paths(source_root, 'data')
-templates_dir = join_paths(source_root, 'build-aux/templates')
+data_dir = source_root / 'data'
+templates_dir = source_root / 'build-aux/templates'
 
-qmi_codegen = find_program(join_paths(source_root, 'build-aux/qmi-codegen/qmi-codegen'))
-qmi_mkenums = find_program(join_paths(source_root, 'build-aux/qmi-mkenums'))
+qmi_codegen = find_program(source_root / 'build-aux/qmi-codegen/qmi-codegen')
+qmi_mkenums = find_program(source_root / 'build-aux/qmi-mkenums')
 
 top_inc = include_directories('.')
 
@@ -151,9 +152,11 @@ assert(not enable_firmware_update or qmi_collection_name != 'minimal', 'Cannot b
 
 # udev support is optional, enabled by default
 enable_udev = get_option('udev')
-
-gudev_dep = dependency('gudev-1.0', version: '>= 232', required: enable_udev and enable_firmware_update)
-config_h.set('WITH_UDEV', gudev_dep.found())
+if enable_udev
+  assert(enable_firmware_update, 'Cannot build udev support without firmware_update support')
+  gudev_dep = dependency('gudev-1.0', version: '>= 232')
+endif
+config_h.set('WITH_UDEV', enable_udev)
 
 enable_bash_completion = get_option('bash_completion')
 if enable_bash_completion
@@ -166,15 +169,11 @@ if enable_bash_completion
 endif
 
 # rmnet link management support
-enable_rmnet = false
-if get_option('rmnet')
-  enable_rmnet = cc.has_type('struct ifla_rmnet_flags', prefix: '#include<linux/if_link.h>')
-endif
+enable_rmnet = get_option('rmnet')
 config_h.set('RMNET_SUPPORT_ENABLED', enable_rmnet)
 
 # runtime MM check is optional, enabled by default
-enable_mm_runtime_check = get_option('mm_runtime_check')
-config_h.set('MM_RUNTIME_CHECK_ENABLED', enable_mm_runtime_check)
+config_h.set('MM_RUNTIME_CHECK_ENABLED', get_option('mm_runtime_check'))
 
 # QMI username
 qmi_username = get_option('qmi_username')
@@ -193,18 +192,16 @@ endif
 config_h.set('QMI_USERNAME_ENABLED', enable_qmi_username)
 
 # MBIM QMUX service support
-enable_mbim_qmux = false
-if get_option('mbim_qmux')
-  mbim_glib_dep = dependency('mbim-glib', version: '>= 1.18.0', required: false)
-  enable_mbim_qmux = mbim_glib_dep.found()
+enable_mbim_qmux = get_option('mbim_qmux')
+if enable_mbim_qmux
+  mbim_glib_dep = dependency('mbim-glib', version: '>= 1.18.0')
 endif
 config_h.set('MBIM_QMUX_ENABLED', enable_mbim_qmux)
 
 # QRTR support
-enable_qrtr = false
-if get_option('qrtr')
-  qrtr_glib_dep = dependency('qrtr-glib', version: '>= 1.0.0', required: false)
-  enable_qrtr = qrtr_glib_dep.found()
+enable_qrtr = get_option('qrtr')
+if enable_qrtr
+  qrtr_glib_dep = dependency('qrtr-glib', version: '>= 1.0.0')
 endif
 config_h.set10('QMI_QRTR_SUPPORTED', enable_qrtr)
 
@@ -223,12 +220,10 @@ if enable_gir
   dependency('gobject-introspection-1.0', version: '>= 0.9.6')
 endif
 
-random_number = qmi_minor_version + meson.version().split('.').get(1).to_int()
-
-test_env = environment()
-test_env.set('G_DEBUG', 'gc-friendly')
-test_env.set('MALLOC_CHECK_', '2')
-test_env.set('MALLOC_PERTURB_', (random_number % 256).to_string())
+test_env = {
+  'G_DEBUG': 'gc-friendly',
+  'MALLOC_CHECK_': '2',
+}
 
 subdir('src')
 subdir('utils')
@@ -239,8 +234,8 @@ if enable_gtk_doc
   subdir('docs/reference/libqmi-glib')
 endif
 
-help2man = find_program('help2man', required: false)
-if help2man.found()
+enable_man = get_option('man')
+if enable_man
   subdir('docs/man')
 endif
 
@@ -249,24 +244,23 @@ configure_file(
   configuration: config_h,
 )
 
-meson.add_install_script(
-  'meson_post_install.py',
-  get_option('bindir'),
-)
+summary({
+  'compiler': cc.get_id(),
+  'cflags': cc_flags,
+  'Documentation': enable_gtk_doc,
+  'bash completion': enable_bash_completion,
+  'gobject introspection': enable_gir,
+  'man pages': enable_man,
+}, section: 'Build')
 
-output = '\n' + meson.project_name() + ' ' + meson.project_version() + '\n\n'
-output += '  Build\n'
-output += '    compiler:              ' + cc.get_id() + '\n'
-output += '    cflags:                ' + ' '.join(cc_flags) + '\n'
-output += '    Documentation:         ' + enable_gtk_doc.to_string() + '\n'
-output += '    bash completion:       ' + enable_bash_completion.to_string() + '\n'
-output += '    gobject introspection: ' + enable_gir.to_string() + '\n\n'
-output += '  System paths\n'
-output += '    prefix:                ' + qmi_prefix + '\n'
-output += '    udev base directory:   ' + qmi_username + '\n\n'
-output += '  Features\n'
-output += '    QMI over MBIM:         ' + enable_mbim_qmux.to_string() + '\n'
-output += '    QMI over QRTR:         ' + enable_qrtr.to_string() + '\n'
-output += '    QMI username:          ' + qmi_username + '\n'
-output += '    rmnet support:         ' + enable_rmnet.to_string()
-message(output)
+summary({
+  'prefix': qmi_prefix,
+  'udev base directory': (enable_qmi_username ? udev_udevdir : 'disabled'),
+}, section: 'System paths')
+
+summary({
+  'QMI over MBIM': enable_mbim_qmux,
+  'QMI over QRTR': enable_qrtr,
+  'QMI username': qmi_username,
+  'rmnet support': enable_rmnet,
+}, section: 'Features')

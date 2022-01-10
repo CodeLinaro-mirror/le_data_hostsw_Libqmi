@@ -9,7 +9,7 @@ libutils = static_library(
 )
 
 libutils_dep = declare_dependency(
-  include_directories: include_directories('.'),
+  include_directories: '.',
   dependencies: libqmi_glib_dep,
   link_with: libutils,
 )
@@ -21,7 +21,7 @@ libfirehose = static_library(
 )
 
 libfirehose_dep = declare_dependency(
-  include_directories: include_directories('.'),
+  include_directories: '.',
   dependencies: glib_deps,
   link_with: libfirehose,
 )
@@ -64,7 +64,7 @@ sources += custom_target(
     python,
     qmi_mkenums,
     '--fhead', '#ifndef QFU_ENUM_TYPES_H\n#define QFU_ENUM_TYPES_H\n#include "qfu-image.h"\n#include "qfu-qdl-message.h"\n#include "qfu-dload-message.h"\n#include "qfu-sahara-message.h"\n',
-    '--template', files(join_paths(templates_dir, enum_types + '.h.template')),
+    '--template', files(templates_dir / enum_types + '.h.template'),
     '--ftail', '#endif /* __QFUENUM_TYPES_H__ */\n',
     '@INPUT@'],
   capture: true,
@@ -78,19 +78,22 @@ sources += custom_target(
     python,
     qmi_mkenums,
     '--fhead', '#include "qfu-enum-types.h"\n',
-    '--template', files(join_paths(templates_dir, enum_types + '.c.template')),
+    '--template', files(templates_dir / enum_types + '.c.template'),
     '@INPUT@'],
   capture: true,
 )
 
 deps = [
-  gudev_dep,
   libfirehose_dep,
   libutils_dep,
 ]
 
 if enable_mbim_qmux
   deps += mbim_glib_dep
+endif
+
+if enable_udev
+  deps += gudev_dep
 endif
 
 qmi_firmware_update = executable(

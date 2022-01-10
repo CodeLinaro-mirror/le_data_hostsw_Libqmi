@@ -47,7 +47,7 @@ headers = qmi_errors_header + qmi_enums_headers + qmi_enums_private_header + qmi
 
 install_headers(
   headers + files('qmi-compat.h'),
-  subdir: qmi_glib_include_subdir,
+  install_dir: qmi_glib_pkgincludedir,
 )
 
 version_header = configure_file(
@@ -99,6 +99,7 @@ deps = [
 
 if enable_mbim_qmux
   sources += files('qmi-endpoint-mbim.c')
+
   deps += mbim_glib_dep
 endif
 
@@ -116,7 +117,7 @@ libqmi_glib = library(
   sources: sources + [version_header],
   include_directories: top_inc,
   dependencies: deps,
-  c_args: common_c_flags + ['-DLIBEXEC_PATH="@0@"'.format(join_paths(qmi_prefix, qmi_libexecdir))],
+  c_args: common_c_flags + ['-DLIBEXEC_PATH="@0@"'.format(qmi_prefix / qmi_libexecdir)],
   link_whole: [libqmi_glib_compat, libqmi_glib_generated],
   install: true,
 )
