@@ -858,7 +858,7 @@ gboolean qmi_device_check_expected_data_format_supported (QmiDevice             
  *
  * Since: 1.28
  */
-#define QMI_DEVICE_MUX_ID_MIN 1
+#define QMI_DEVICE_MUX_ID_MIN 112
 
 /**
  * QMI_DEVICE_MUX_ID_MAX:
