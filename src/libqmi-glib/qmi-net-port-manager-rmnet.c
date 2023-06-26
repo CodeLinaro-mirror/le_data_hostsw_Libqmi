@@ -60,6 +60,7 @@ struct _QmiNetPortManagerRmnetPrivate {
 
 #define RMNET_DATA_TYPE "rmnet"
 #define RMNET_MAX_MUX_ID 255
+#define RMNET_MAX_TX_QUEUES 31
 
 /*****************************************************************************/
 
@@ -326,6 +327,7 @@ netlink_message_new_link (guint  mux_id,
     msg = netlink_message_new (RTM_NEWLINK, NLM_F_CREATE | NLM_F_EXCL);
     append_netlink_attribute_uint32 (msg, IFLA_LINK, base_if_index);
     append_netlink_attribute_string (msg, IFLA_IFNAME, ifname);
+    append_netlink_attribute_uint32 (msg, IFLA_NUM_TX_QUEUES, RMNET_MAX_TX_QUEUES);
 
     /* Store the position of the next attribute to adjust its length later. */
     linkinfo_pos = get_pos_of_next_attr (msg);
